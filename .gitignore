@@ -23,10 +23,21 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment & Sensitive Credentials
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+secrets/
+
 # Security & Local Database Backups
 backend/data/demo_credentials.json
 backend/*.backup
 backend/regive_migration_test.db
 __pycache__/
 *.pyc
+*.pyo
+.pytest_cache/
 
