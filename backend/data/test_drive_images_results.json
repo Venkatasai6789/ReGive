@@ -1,0 +1,156 @@
+[
+  {
+    "image": "f10.jpg",
+    "edibility_score": 0.968,
+    "is_edible": true,
+    "detected_food_type": "Prepared Meals",
+    "blip_caption": "a white bowl filled with brown rice and vegetables",
+    "safety_status": "Eligible",
+    "stream_type": "human",
+    "top_partner": "Annapoorna Trust",
+    "match_score": 75.3
+  },
+  {
+    "image": "f11.jpeg",
+    "edibility_score": 0.099,
+    "is_edible": false,
+    "detected_food_type": "Organic Compost",
+    "blip_caption": "rice with mushrooms and mushrooms in a bowl stock photo",
+    "safety_status": "Eligible",
+    "stream_type": "compost",
+    "top_partner": "Green Earth Composters",
+    "match_score": 64.1
+  },
+  {
+    "image": "f12.webp",
+    "edibility_score": 0.1089,
+    "is_edible": false,
+    "detected_food_type": "Biogas Fuel",
+    "blip_caption": "a pile of pork bones on a white background",
+    "safety_status": "Eligible",
+    "stream_type": "biogas",
+    "top_partner": "BioGas Energy Plant",
+    "match_score": 73.4
+  },
+  {
+    "image": "f13.jpg",
+    "edibility_score": 0.0906,
+    "is_edible": false,
+    "detected_food_type": "Organic Compost",
+    "blip_caption": "a banana sitting on top of a white plate",
+    "safety_status": "Eligible",
+    "stream_type": "compost",
+    "top_partner": "Green Earth Composters",
+    "match_score": 70.1
+  },
+  {
+    "image": "f14.jpeg",
+    "edibility_score": 0.0497,
+    "is_edible": false,
+    "detected_food_type": "Organic Compost",
+    "blip_caption": "chicken in a bowl with spices and seasoning",
+    "safety_status": "Eligible",
+    "stream_type": "compost",
+    "top_partner": "Green Earth Composters",
+    "match_score": 63.0
+  },
+  {
+    "image": "f15.jpg",
+    "edibility_score": 0.1037,
+    "is_edible": false,
+    "detected_food_type": "Organic Compost",
+    "blip_caption": "a loaf of bread sitting on top of a piece of paper",
+    "safety_status": "Eligible",
+    "stream_type": "compost",
+    "top_partner": "Green Earth Composters",
+    "match_score": 68.3
+  },
+  {
+    "image": "f2.jpeg",
+    "edibility_score": 0.783,
+    "is_edible": true,
+    "detected_food_type": "Prepared Meals",
+    "blip_caption": "a glass bowl filled with meat and cheese",
+    "safety_status": "Eligible",
+    "stream_type": "human",
+    "top_partner": "Annapoorna Trust",
+    "match_score": 74.5
+  },
+  {
+    "image": "f3.jpg",
+    "edibility_score": 0.9697,
+    "is_edible": true,
+    "detected_food_type": "Prepared Meals",
+    "blip_caption": "a pan filled with food sitting on a stove",
+    "safety_status": "Eligible",
+    "stream_type": "human",
+    "top_partner": "Annapoorna Trust",
+    "match_score": 75.7
+  },
+  {
+    "image": "f4.jpg",
+    "edibility_score": 0.9834,
+    "is_edible": true,
+    "detected_food_type": "Prepared Meals",
+    "blip_caption": "a bowl of food sitting on top of a table",
+    "safety_status": "Eligible",
+    "stream_type": "human",
+    "top_partner": "Annapoorna Trust",
+    "match_score": 78.1
+  },
+  {
+    "image": "f5.webp",
+    "edibility_score": 0.9892,
+    "is_edible": true,
+    "detected_food_type": "Prepared Meals",
+    "blip_caption": "a plate with a pizza on top of it",
+    "safety_status": "Eligible",
+    "stream_type": "human",
+    "top_partner": "Annapoorna Trust",
+    "match_score": 70.9
+  },
+  {
+    "image": "f6.jpg",
+    "edibility_score": 0.8396,
+    "is_edible": true,
+    "detected_food_type": "Prepared Meals",
+    "blip_caption": "a pot filled with soup sitting on a wooden table",
+    "safety_status": "Eligible",
+    "stream_type": "human",
+    "top_partner": "Annapoorna Trust",
+    "match_score": 73.7
+  },
+  {
+    "image": "f7.jpeg",
+    "edibility_score": 0.8243,
+    "is_edible": true,
+    "detected_food_type": "Prepared Meals",
+    "blip_caption": "a plate of noodles with meat and vegetables",
+    "safety_status": "Eligible",
+    "stream_type": "human",
+    "top_partner": "Annapoorna Trust",
+    "match_score": 74.1
+  },
+  {
+    "image": "f8.webp",
+    "edibility_score": 0.9927,
+    "is_edible": true,
+    "detected_food_type": "Prepared Meals",
+    "blip_caption": "a bowl of food on a wooden table",
+    "safety_status": "Eligible",
+    "stream_type": "human",
+    "top_partner": "Annapoorna Trust",
+    "match_score": 75.9
+  },
+  {
+    "image": "f9.jpeg",
+    "edibility_score": 0.7528,
+    "is_edible": true,
+    "detected_food_type": "Prepared Meals",
+    "blip_caption": "a silver bowl filled with rice and vegetables",
+    "safety_status": "Eligible",
+    "stream_type": "human",
+    "top_partner": "Annapoorna Trust",
+    "match_score": 77.1
+  }
+]

@@ -1,0 +1,69 @@
+{
+  "api_tests": {
+    "GET /health": {
+      "status": "PASSED",
+      "code": 200,
+      "data": {
+        "status": "healthy",
+        "service": "regive-backend"
+      }
+    },
+    "GET /api/partners": {
+      "status": "PASSED",
+      "count": 12
+    },
+    "GET /api/partners/prt-ngo-01": {
+      "status": "PASSED",
+      "name": "Annapoorna Trust"
+    },
+    "POST /api/donations/analyze (Edible f10)": {
+      "status": "PASSED",
+      "edibility": 0.968,
+      "is_edible": true,
+      "caption": "a white bowl filled with brown rice and vegetables",
+      "safety": "Eligible"
+    },
+    "POST /api/donations/analyze (Inedible f11)": {
+      "status": "PASSED",
+      "edibility": 0.099,
+      "is_edible": false,
+      "type": "Organic Compost",
+      "safety": "Not Eligible",
+      "stream": "compost"
+    },
+    "POST /api/donations": {
+      "status": "PASSED",
+      "id": "DON-2026-2793",
+      "donor_id": "usr-elena-01",
+      "partner": "Green Earth Composters"
+    },
+    "GET /api/donations?donor_id=usr-elena-01": {
+      "status": "PASSED",
+      "donor_donations_count": 9
+    },
+    "GET /api/donations/DON-2026-2793": {
+      "status": "PASSED",
+      "timeline_stages": 5,
+      "ai_analysis_present": true
+    },
+    "PATCH /api/donations/{id}/status": {
+      "status": "PASSED",
+      "new_status": "Collection Scheduled"
+    }
+  },
+  "db_verification": {
+    "status": "ALL_TABLES_VERIFIED",
+    "donation_id": "DON-2026-2793",
+    "donor_id": "usr-elena-01",
+    "matches_count": 2,
+    "events_count": 5
+  },
+  "e2e_browser_test": {
+    "status": "PASSED",
+    "screenshots": [
+      "e2e_confirmation_success.png",
+      "e2e_my_donations_ledger.png",
+      "e2e_tracking_drawer_live.png"
+    ]
+  }
+}

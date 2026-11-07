@@ -1,0 +1,539 @@
+=== NOTEBOOK: exsel_project.ipynb ===
+Total cells: 11
+
+--- CELL 0 [code] ---
+!pip install -q transformers sentence-transformers faiss-cpu pillow pandas
+
+--- CELL 1 [code] ---
+import os, re, math
+import numpy as np
+import pandas as pd
+import faiss
+from PIL import Image
+from transformers import pipeline, BlipProcessor, BlipForConditionalGeneration
+from sentence_transformers import SentenceTransformer
+
+# 1) CLIP: classification (edible / non-edible / food type)
+clip = pipeline("zero-shot-image-classification", model="openai/clip-vit-base-patch32")
+
+# 2) BLIP: image captioning
+blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
+
+# 3) MiniLM: text embeddings for FAISS matching
+mini = SentenceTransformer("all-MiniLM-L6-v2")
+
+print("Models loaded")
+>>> OUTPUTS:
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING:huggingface_hub.utils._http:Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+config.json:   0%|          | 0.00/4.19k [00:00<?, ?B/s]
+pytorch_model.bin: reconstructing file:   0%|          |  0.00B /  605MB            
+pytorch_model.bin: downloading bytes:           |  0.00B            
+model.safetensors: reconstructing file:   0%|          |  0.00B /  605MB            
+model.safetensors: downloading bytes:           |  0.00B            
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]
+tokenizer_config.json:   0%|          | 0.00/592 [00:00<?, ?B/s]
+vocab.json:   0%|          | 0.00/862k [00:00<?, ?B/s]
+merges.txt:   0%|          | 0.00/525k [00:00<?, ?B/s]
+tokenizer.json:   0%|          | 0.00/2.22M [00:00<?, ?B/s]
+special_tokens_map.json:   0%|          | 0.00/389 [00:00<?, ?B/s]
+preprocessor_config.json:   0%|          | 0.00/316 [00:00<?, ?B/s]
+preprocessor_config.json:   0%|          | 0.00/287 [00:00<?, ?B/s]
+config.json:   0%|          | 0.00/4.56k [00:00<?, ?B/s]
+tokenizer_config.json:   0%|          | 0.00/506 [00:00<?, ?B/s]
+vocab.txt:   0%|          | 0.00/232k [00:00<?, ?B/s]
+tokenizer.json:   0%|          | 0.00/711k [00:00<?, ?B/s]
+special_tokens_map.json:   0%|          | 0.00/125 [00:00<?, ?B/s]
+pytorch_model.bin: reconstructing file:   0%|          |  0.00B /  990MB            
+pytorch_model.bin: downloading bytes:           |  0.00B            
+Loading weights:   0%|          | 0/473 [00:00<?, ?it/s]
+model.safetensors: reconstructing file:   0%|          |  0.00B /  990MB            
+model.safetensors: downloading bytes:           |  0.00B            
+modules.json:   0%|          | 0.00/349 [00:00<?, ?B/s]
+config_sentence_transformers.json:   0%|          | 0.00/116 [00:00<?, ?B/s]
+README.md:   0%|          | 0.00/10.5k [00:00<?, ?B/s]
+sentence_bert_config.json:   0%|          | 0.00/53.0 [00:00<?, ?B/s]
+config.json:   0%|          | 0.00/612 [00:00<?, ?B/s]
+model.safetensors: reconstructing file:   0%|          |  0.00B / 90.9MB            
+model.safetensors: downloading bytes:           |  0.00B            
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]
+tokenizer_config.json:   0%|          | 0.00/350 [00:00<?, ?B/s]
+vocab.txt:   0%|          | 0.00/232k [00:00<?, ?B/s]
+tokenizer.json:   0%|          | 0.00/466k [00:00<?, ?B/s]
+special_tokens_map.json:   0%|          | 0.00/112 [00:00<?, ?B/s]
+config.json:   0%|          | 0.00/190 [00:00<?, ?B/s]
+Models loaded
+
+
+--- CELL 2 [code] ---
+from google.colab import drive
+drive.mount('/content/drive')
+
+IMAGE_DIR = "/content/drive/MyDrive/photos"
+print(find_images())         # change to "/content" or a Drive folder if needed
+
+def find_images(folder=None):
+    folder = folder or IMAGE_DIR
+    files = [f for f in os.listdir(folder)
+             if re.fullmatch(r"f\d+\.(jpg|jpeg|png|webp)", f.lower())]
+    return sorted(files, key=lambda f: int(re.findall(r"\d+", f)[0]))
+
+def caption(path):
+    img = Image.open(path).convert("RGB")
+    inputs = blip_processor(img, return_tensors="pt")
+    out = blip_model.generate(**inputs, max_new_tokens=30,
+                              num_beams=3, repetition_penalty=1.5)
+    return blip_processor.decode(out[0], skip_special_tokens=True)
+
+def haversine(lat1, lng1, lat2, lng2):
+    R = 6371
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = p2 - p1, math.radians(lng2 - lng1)
+    a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
+    return 2 * R * math.asin(math.sqrt(a))
+
+print(find_images())
+>>> OUTPUTS:
+Mounted at /content/drive
+['f2.jpeg', 'f3.jpg', 'f4.jpg', 'f5.webp', 'f6.jpg', 'f7.jpeg', 'f8.webp', 'f9.jpeg', 'f10.jpg', 'f11.jpeg', 'f12.webp', 'f13.jpg', 'f14.jpeg', 'f15.jpg']
+['f2.jpeg', 'f3.jpg', 'f4.jpg', 'f5.webp', 'f6.jpg', 'f7.jpeg', 'f8.webp', 'f9.jpeg', 'f10.jpg', 'f11.jpeg', 'f12.webp', 'f13.jpg', 'f14.jpeg', 'f15.jpg']
+
+
+--- CELL 3 [code] ---
+IMAGE_DIR = "/content"
+print(find_images())
+>>> OUTPUTS:
+['f1.jpg', 'f2.jpeg', 'f3.jpg', 'f4.jpg', 'f5.webp', 'f6.jpg', 'f7.jpeg', 'f8.webp', 'f9.jpeg', 'f10.jpg', 'f11.jpeg', 'f12.webp', 'f13.jpg', 'f14.jpeg', 'f15.jpg']
+
+
+--- CELL 4 [code] ---
+def safety_check(food_category, hours_since_cooked, storage):
+    """storage: 'room', 'fridge' or 'sealed'"""
+    if food_category != "cooked meals" or storage == "sealed":
+        return True, "ok"
+    if storage == "room" and hours_since_cooked > 4:
+        return False, f"cooked food {hours_since_cooked}h at room temp (limit 4h)"
+    if storage == "fridge" and hours_since_cooked > 24:
+        return False, f"cooked food {hours_since_cooked}h in fridge (limit 24h)"
+    return True, "ok"
+
+print(safety_check("cooked meals", 6, "room"))
+print(safety_check("cooked meals", 6, "fridge"))
+>>> OUTPUTS:
+(False, 'cooked food 6h at room temp (limit 4h)')
+(True, 'ok')
+
+
+--- CELL 5 [code] ---
+# Q1: edible vs non-edible (binary)
+EDIBLE_PROMPTS = ["fresh appetizing food that is safe to eat",
+                  "rotten, moldy or inedible food waste"]
+
+# Q2: if non-edible, which recovery stream
+NON_EDIBLE = {
+    "stale dry bread":                  "animal",
+    "vegetable peels and food scraps":  "animal",
+    "moldy spoiled food":               "compost",
+    "rotten decaying food":             "compost",
+    "bones and meat waste":             "biogas",
+}
+
+# Q3: food type -> broad category (used in the NGO query)
+FOOD_LABELS = {
+    "rice dish or biryani": "cooked meals", "curry or gravy": "cooked meals",
+    "soup": "cooked meals", "noodles or pasta": "cooked meals",
+    "pizza": "cooked meals", "chicken or meat dish": "cooked meals",
+    "bread or bun": "bakery", "cake or pastry": "bakery",
+    "fruits": "fruits and vegetables", "vegetables": "fruits and vegetables",
+    "sweets or dessert": "sweets and desserts",
+    "packaged snacks": "packaged food", "drinks": "beverages",
+}
+
+def classify_donation(path):
+    img = Image.open(path).convert("RGB")
+
+    r1 = clip(img, candidate_labels=EDIBLE_PROMPTS, hypothesis_template="a photo of {}.")
+    edible_score = next(r["score"] for r in r1 if r["label"] == EDIBLE_PROMPTS[0])
+
+    r2 = clip(img, candidate_labels=list(NON_EDIBLE), hypothesis_template="a photo of {}.")
+    non_label = r2[0]["label"]
+
+    r3 = clip(img, candidate_labels=list(FOOD_LABELS),
+              hypothesis_template="a photo of {}, a type of food.")
+    food_label, food_score = r3[0]["label"], r3[0]["score"]
+
+    return {
+        "edible": edible_score >= 0.5,
+        "edible_score": round(edible_score, 2),
+        "non_edible_label": non_label,
+        "non_edible_stream": NON_EDIBLE[non_label],
+        "food_type": food_label,
+        "food_category": FOOD_LABELS[food_label],
+        "food_score": round(food_score, 2),
+        "needs_review": 0.35 < edible_score < 0.65,   # model is unsure
+    }
+
+for f in find_images():
+    c = classify_donation(os.path.join(IMAGE_DIR, f))
+    print(f, "| edible" if c["edible"] else "| NON-EDIBLE", c["edible_score"],
+          "|", c["food_type"], "|", c["non_edible_label"])
+>>> OUTPUTS:
+f1.jpg | edible 0.66 | curry or gravy | rotten decaying food
+f2.jpeg | edible 0.84 | pizza | rotten decaying food
+f3.jpg | edible 0.96 | chicken or meat dish | rotten decaying food
+f4.jpg | edible 0.98 | rice dish or biryani | rotten decaying food
+f5.webp | edible 0.99 | pizza | rotten decaying food
+f6.jpg | edible 0.93 | curry or gravy | rotten decaying food
+f7.jpeg | edible 0.83 | noodles or pasta | rotten decaying food
+f8.webp | edible 0.99 | curry or gravy | rotten decaying food
+f9.jpeg | edible 0.88 | rice dish or biryani | vegetable peels and food scraps
+f10.jpg | edible 0.99 | rice dish or biryani | rotten decaying food
+f11.jpeg | NON-EDIBLE 0.2 | rice dish or biryani | moldy spoiled food
+f12.webp | NON-EDIBLE 0.03 | sweets or dessert | bones and meat waste
+f13.jpg | NON-EDIBLE 0.41 | fruits | rotten decaying food
+f14.jpeg | NON-EDIBLE 0.02 | chicken or meat dish | rotten decaying food
+f15.jpg | NON-EDIBLE 0.24 | bread or bun | moldy spoiled food
+
+
+--- CELL 6 [code] ---
+NGOS = [
+  {"name": "Annapoorna Trust", "lat": 10.38, "lng": 78.82, "capacity": 150, "radius": 15,
+   "text": "Serves hot cooked meals like rice, sambar, curry and chicken to homeless people and daily wage workers"},
+  {"name": "Little Hands Orphanage", "lat": 10.40, "lng": 78.80, "capacity": 60, "radius": 12,
+   "text": "Children's home that accepts bread, bakery items, fruits, biscuits, sweets and milk"},
+  {"name": "Green Basket Foundation", "lat": 10.35, "lng": 78.85, "capacity": 200, "radius": 20,
+   "text": "Distributes fresh vegetables and fruits to low-income families"},
+  {"name": "Sunset Elders Home", "lat": 10.42, "lng": 78.78, "capacity": 40, "radius": 10,
+   "text": "Old age home that needs soft cooked food like rice, soup, idli, fruits and milk"},
+  {"name": "Hope Night Shelter", "lat": 10.37, "lng": 78.83, "capacity": 120, "radius": 15,
+   "text": "Night shelter providing dinner such as cooked rice, noodles, curry and bread to homeless people"},
+  {"name": "Bright Future School Meals", "lat": 10.39, "lng": 78.86, "capacity": 250, "radius": 18,
+   "text": "School meal program for children that accepts cooked meals, packaged snacks, biscuits and fruits"},
+]
+
+RECYCLERS = [
+  {"name": "Gokul Goshala", "stream": "animal", "lat": 10.36, "lng": 78.84, "radius": 25,
+   "text": "Cattle shelter that accepts stale bread, vegetable peels, fruit scraps and dry leftovers as animal feed"},
+  {"name": "Happy Paws Shelter", "stream": "animal", "lat": 10.41, "lng": 78.81, "radius": 15,
+   "text": "Dog and cat shelter that accepts leftover rice, bread and cooked scraps without mold"},
+  {"name": "Green Earth Composters", "stream": "compost", "lat": 10.34, "lng": 78.87, "radius": 30,
+   "text": "Composting unit that turns spoiled food, rotten fruits, vegetable waste and peels into organic compost"},
+  {"name": "Vermi Farm Co-op", "stream": "compost", "lat": 10.43, "lng": 78.79, "radius": 25,
+   "text": "Vermicompost farm that accepts rotten vegetables, fruit waste and spoiled food"},
+  {"name": "BioGas Energy Plant", "stream": "biogas", "lat": 10.33, "lng": 78.88, "radius": 40,
+   "text": "Biogas plant converting food waste, bones, meat waste and cooked leftovers into biogas fuel"},
+  {"name": "Rural Biogas Unit", "stream": "biogas", "lat": 10.45, "lng": 78.75, "radius": 30,
+   "text": "Community biogas digester that accepts kitchen waste, bones and meat scraps to produce cooking gas"},
+]
+
+def build_index(texts):
+    emb = mini.encode(texts, normalize_embeddings=True).astype("float32")
+    index = faiss.IndexFlatIP(emb.shape[1])     # inner product = cosine similarity
+    index.add(emb)
+    return index
+
+# FAISS index for NGOs
+ngo_index = build_index([n["text"] for n in NGOS])
+
+# One FAISS index per recovery stream
+REC_INDEX = {}
+for stream in ["animal", "compost", "biogas"]:
+    items = [r for r in RECYCLERS if r["stream"] == stream]
+    REC_INDEX[stream] = (build_index([r["text"] for r in items]), items)
+
+print(f"{len(NGOS)} NGOs and {len(RECYCLERS)} recyclers indexed in FAISS")
+>>> OUTPUTS:
+6 NGOs and 6 recyclers indexed in FAISS
+
+
+--- CELL 7 [code] ---
+def rank_ngos(query, quantity, lat, lng, top_k=3):
+    q = mini.encode([query], normalize_embeddings=True).astype("float32")
+    sims, ids = ngo_index.search(q, len(NGOS))
+    out = []
+    for sim, i in zip(sims[0], ids[0]):
+        n = NGOS[i]
+        dist = haversine(lat, lng, n["lat"], n["lng"])
+        if dist > n["radius"]:
+            continue                                   # outside service area
+        sim = max(0.0, float(sim))
+        prox = max(0.0, 1 - dist / n["radius"])
+        cap = min(1.0, n["capacity"] / max(quantity, 1))
+        score = 0.5 * sim + 0.3 * prox + 0.2 * cap
+        out.append({"name": n["name"], "score": round(score * 100, 1),
+                    "reason": f"{sim:.0%} food match, {dist:.1f} km away, capacity {n['capacity']} meals"})
+    return sorted(out, key=lambda x: x["score"], reverse=True)[:top_k]
+
+def rank_recyclers(stream, query, lat, lng, top_k=2):
+    index, items = REC_INDEX[stream]
+    q = mini.encode([query], normalize_embeddings=True).astype("float32")
+    sims, ids = index.search(q, len(items))
+    out = []
+    for sim, i in zip(sims[0], ids[0]):
+        r = items[i]
+        dist = haversine(lat, lng, r["lat"], r["lng"])
+        if dist > r["radius"]:
+            continue
+        prox = max(0.0, 1 - dist / r["radius"])
+        score = 0.6 * max(0.0, float(sim)) + 0.4 * prox
+        out.append({"name": r["name"], "score": round(score * 100, 1),
+                    "reason": f"{max(0.0, float(sim)):.0%} waste match, {dist:.1f} km away"})
+    return sorted(out, key=lambda x: x["score"], reverse=True)[:top_k]
+
+--- CELL 8 [code] ---
+PATHWAYS = {
+    "human":   "Food rescue → NGO (human consumption)",
+    "animal":  "Animal feed → goshala / animal shelter",
+    "compost": "Bio-compost → composting / vermicompost unit",
+    "biogas":  "Bio-energy → biogas plant",
+}
+
+IMPACT = []     # every processed donation is logged here
+
+def dashboard():
+    if not IMPACT:
+        print("No donations processed yet"); return
+    df = pd.DataFrame(IMPACT)
+    print("=== SURPLUSLINK IMPACT ===")
+    print("Donations processed :", len(df))
+    print("Meals rescued       :", int(df.loc[df.stream == "human", "meals"].sum()))
+    for s, label in [("animal", "Animal feed (kg)"), ("compost", "Compost (kg)"), ("biogas", "Biogas feedstock (kg)")]:
+        print(f"{label:<20}:", round(df.loc[df.stream == s, "weight_kg"].sum(), 1))
+    print("Waste diverted from landfill (kg):",
+          round(df.loc[df.stream != 'human', 'weight_kg'].sum(), 1))
+    print("Needs manual review :", int(df.needs_review.sum()))
+    return df
+
+--- CELL 9 [code] ---
+def process_donation(path, quantity=50, weight_kg=10, hours_since_cooked=1,
+                     storage="room", lat=10.38, lng=78.82, log=True):
+    cap = caption(path)
+    c = classify_donation(path)
+    reason = ""
+
+    # ---- Decide the stream ----
+    if c["edible"]:
+        safe, why = safety_check(c["food_category"], hours_since_cooked, storage)
+        if safe:
+            stream = "human"
+        else:
+            stream, reason = "compost", f"Unsafe: {why}"
+    else:
+        stream = c["non_edible_stream"]
+        reason = f"Detected as {c['non_edible_label']}"
+
+    # ---- Match partners with FAISS ----
+    if stream == "human":
+        matches = rank_ngos(f"{c['food_type']} ({c['food_category']}): {cap}", quantity, lat, lng)
+    else:
+        matches = rank_recyclers(stream, f"{c['non_edible_label']}: {cap}", lat, lng)
+
+    result = {
+        "image": os.path.basename(path), "caption": cap,
+        "food": f"{c['food_type']} ({c['food_category']})",
+        "edible": c["edible"], "edible_score": c["edible_score"],
+        "stream": stream, "pathway": PATHWAYS[stream], "reason": reason,
+        "needs_review": c["needs_review"], "matches": matches,
+    }
+
+    if log:
+        IMPACT.append({"image": result["image"], "stream": stream,
+                       "meals": quantity if stream == "human" else 0,
+                       "weight_kg": weight_kg, "needs_review": c["needs_review"]})
+    return result
+
+def show(r):
+    print("\n" + "=" * 62)
+    print(f"{r['image']} | {r['caption']}")
+    print(f"Food: {r['food']} | edible score: {r['edible_score']}"
+          + ("  ⚠ REVIEW" if r["needs_review"] else ""))
+    print(f"Pathway: {r['pathway']}" + (f"  ({r['reason']})" if r["reason"] else ""))
+    if not r["matches"]:
+        print("  - No partner within range")
+    for m in r["matches"]:
+        print(f"  - {m['name']}  [{m['score']}]  {m['reason']}")
+
+--- CELL 10 [code] ---
+IMPACT.clear()
+rows = []
+for f in find_images():
+    r = process_donation(os.path.join(IMAGE_DIR, f), quantity=50, weight_kg=10,
+                         hours_since_cooked=1, storage="room")
+    show(r)
+    rows.append({"image": r["image"], "caption": r["caption"], "food": r["food"],
+                 "edible_score": r["edible_score"], "stream": r["stream"],
+                 "top_match": r["matches"][0]["name"] if r["matches"] else "none",
+                 "review": r["needs_review"], "true_food": "", "correct": ""})
+
+results = pd.DataFrame(rows)
+results.to_csv("/vision_results.csv", index=False)
+results
+>>> OUTPUTS:
+
+==============================================================
+f1.jpg | a bowl of food with meat and vegetables in it
+Food: curry or gravy (cooked meals) | edible score: 0.66
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [78.6]  57% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [67.3]  41% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [61.3]  38% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f2.jpeg | a glass bowl filled with meat and cheese
+Food: pizza (cooked meals) | edible score: 0.84
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [73.0]  46% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [66.7]  40% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [62.9]  41% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f3.jpg | a pan full of food sitting on a stove
+Food: chicken or meat dish (cooked meals) | edible score: 0.96
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [76.7]  53% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [66.1]  38% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [61.5]  38% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f4.jpg | a bowl of food sitting on top of a table
+Food: rice dish or biryani (cooked meals) | edible score: 0.98
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [78.3]  57% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [72.3]  51% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [63.1]  41% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f5.webp | a plate with a pizza on top of it
+Food: pizza (cooked meals) | edible score: 0.99
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [69.8]  40% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [63.4]  33% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [61.2]  38% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f6.jpg | a pot filled with soup sitting on top of a wooden table
+Food: curry or gravy (cooked meals) | edible score: 0.93
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [77.2]  54% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [69.2]  45% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [59.0]  33% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f7.jpeg | a plate of noodles with meat and vegetables
+Food: noodles or pasta (cooked meals) | edible score: 0.83
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [72.3]  45% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [71.8]  50% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [61.9]  39% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f8.webp | a white bowl filled with food on top of a wooden table
+Food: curry or gravy (cooked meals) | edible score: 0.99
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [77.9]  56% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [68.4]  43% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [60.8]  37% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f9.jpeg | a silver bowl filled with rice and vegetables
+Food: rice dish or biryani (cooked meals) | edible score: 0.88
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [77.3]  55% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [69.3]  45% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [61.4]  38% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f10.jpg | a skill skill skill skill skill skill skill skill skill skill skill skill skill skill skill skill skill skill skill skill
+Food: rice dish or biryani (cooked meals) | edible score: 0.99
+Pathway: Food rescue → NGO (human consumption)
+  - Annapoorna Trust  [74.7]  49% food match, 0.0 km away, capacity 150 meals
+  - Hope Night Shelter  [66.4]  39% food match, 1.6 km away, capacity 120 meals
+  - Bright Future School Meals  [57.9]  31% food match, 4.5 km away, capacity 250 meals
+
+==============================================================
+f11.jpeg | rice with mushrooms and mushrooms in a bowl stock photo
+Food: rice dish or biryani (cooked meals) | edible score: 0.2
+Pathway: Bio-compost → composting / vermicompost unit  (Detected as moldy spoiled food)
+  - Vermi Farm Co-op  [56.6]  45% waste match, 6.5 km away
+  - Green Earth Composters  [56.4]  43% waste match, 7.0 km away
+
+==============================================================
+f12.webp | a pile of pork bones on a white background
+Food: sweets or dessert (sweets and desserts) | edible score: 0.03
+Pathway: Bio-energy → biogas plant  (Detected as bones and meat waste)
+  - BioGas Energy Plant  [53.2]  36% waste match, 8.6 km away
+  - Rural Biogas Unit  [45.8]  34% waste match, 10.9 km away
+
+==============================================================
+f13.jpg | a banana sitting on top of a white plate
+Food: fruits (fruits and vegetables) | edible score: 0.41  ⚠ REVIEW
+Pathway: Bio-compost → composting / vermicompost unit  (Detected as rotten decaying food)
+  - Green Earth Composters  [61.8]  52% waste match, 7.0 km away
+  - Vermi Farm Co-op  [56.9]  45% waste match, 6.5 km away
+
+==============================================================
+f14.jpeg | chicken in a bowl with spices
+Food: chicken or meat dish (cooked meals) | edible score: 0.02
+Pathway: Bio-compost → composting / vermicompost unit  (Detected as rotten decaying food)
+  - Vermi Farm Co-op  [56.6]  45% waste match, 6.5 km away
+  - Green Earth Composters  [55.7]  42% waste match, 7.0 km away
+
+==============================================================
+f15.jpg | a loaf of bread sitting on top of a piece of paper
+Food: bread or bun (bakery) | edible score: 0.24
+Pathway: Bio-compost → composting / vermicompost unit  (Detected as moldy spoiled food)
+  - Green Earth Composters  [56.9]  44% waste match, 7.0 km away
+  - Vermi Farm Co-op  [53.5]  40% waste match, 6.5 km away
+
+       image                                            caption  \
+0     f1.jpg      a bowl of food with meat and vegetables in it   
+1    f2.jpeg           a glass bowl filled with meat and cheese   
+2     f3.jpg              a pan full of food sitting on a stove   
+3     f4.jpg           a bowl of food sitting on top of a table   
+4    f5.webp                  a plate with a pizza on top of it   
+5     f6.jpg  a pot filled with soup sitting on top of a woo...   
+6    f7.jpeg        a plate of noodles with meat and vegetables   
+7    f8.webp  a white bowl filled with food on top of a wood...   
+8    f9.jpeg      a silver bowl filled with rice and vegetables   
+9    f10.jpg  a skill skill skill skill skill skill skill sk...   
+10  f11.jpeg  rice with mushrooms and mushrooms in a bowl st...   
+11  f12.webp         a pile of pork bones on a white background   
+12   f13.jpg           a banana sitting on top of a white plate   
+13  f14.jpeg                      chicken in a bowl with spices   
+14   f15.jpg  a loaf of bread sitting on top of a piece of p...   
+
+                                       food  edible_score   stream  \
+0             curry or gravy (cooked meals)          0.66    human   
+1                      pizza (cooked meals)          0.84    human   
+2       chicken or meat dish (cooked meals)          0.96    human   
+3       rice dish or biryani (cooked meals)          0.98    human   
+4                      pizza (cooked meals)          0.99    human   
+5             curry or gravy (cooked meals)          0.93    human   
+6           noodles or pasta (cooked meals)          0.83    human   
+7             curry or gravy (cooked meals)          0.99    human   
+8       rice dish or biryani (cooked meals)          0.88    human   
+9       rice dish or biryani (cooked meals)          0.99    human   
+10      rice dish or biryani (cooked meals)          0.20  compost   
+11  sweets or dessert (sweets and desserts)          0.03   biogas   
+12           fruits (fruits and vegetables)          0.41  compost   
+13      chicken or meat dish (cooked meals)          0.02  compost   
+14                    bread or bun (bakery)          0.24  compost   
+
+                 top_match  review true_food correct  
+0         Annapoorna Trust   False                    
+1         Annapoorna Trust   False                    
+2         Annapoorna Trust   False                    
+3         Annapoorna Trust   False                    
+4         Annapoorna Trust   False                    
+5         Annapoorna Trust   False                    
+6         Annapoorna Trust   False                    
+7         Annapoorna Trust   False                    
+8         Annapoorna Trust   False                    
+9         Annapoorna Trust   False                    
+10        Vermi Farm Co-op   False                    
+11     BioGas Energy Plant   False                    
+12  Green Earth Composters    True                    
+13        Vermi Farm Co-op   False                    
+14  Green Earth Composters   False                    
