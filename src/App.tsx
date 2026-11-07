@@ -7,6 +7,8 @@ import {
   RejectPayload,
   SchedulePayload
 } from './types/partner';
+import { User } from './types/auth';
+import { useAuth } from './context/AuthContext';
 import { getStoredDonations, saveDonations, syncDonationsFromBackend } from './services/donationService';
 import {
   fetchPartnerDashboard,
@@ -22,10 +24,11 @@ import {
 import { DonorLayout } from './components/layout/DonorLayout';
 import { PartnerLayout } from './components/partner/PartnerLayout';
 
-// Donor Pages
+// Pages
 import { DonorHome } from './pages/DonorHome';
 import { CreateDonation } from './pages/CreateDonation';
 import { MyDonations } from './pages/MyDonations';
+import { LoginPage } from './pages/auth/LoginPage';
 
 // Partner Pages & Components
 import { PartnerDashboard } from './pages/partner/PartnerDashboard';
@@ -34,8 +37,15 @@ import { PartnerCollectionHistory } from './pages/partner/PartnerCollectionHisto
 import { PartnerDonationDetailsDrawer } from './components/partner/PartnerDonationDetailsDrawer';
 
 export const App: React.FC = () => {
+  const { user, isAuthenticated, logout } = useAuth();
+
   // Portal Mode
   const [portalMode, setPortalMode] = useState<'donor' | 'partner'>('donor');
+
+  // Auth UI State
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [returnTarget, setReturnTarget] = useState<ScreenType | null>(null);
+  const [destinationNotice, setDestinationNotice] = useState<string | null>(null);
 
   // Donor State
   const [currentDonorScreen, setCurrentDonorScreen] = useState<ScreenType>('home');
@@ -51,6 +61,20 @@ export const App: React.FC = () => {
   const [selectedPartnerDonation, setSelectedPartnerDonation] = useState<PartnerDonationItem | null>(null);
   const [isPartnerDrawerOpen, setIsPartnerDrawerOpen] = useState(false);
   const [isPartnerLoading, setIsPartnerLoading] = useState(false);
+
+  // Synchronize authenticated role on load or user change
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'ngo' || user.role === 'recycler') {
+        setPortalMode('partner');
+        if (user.linked_profile_id) {
+          setActivePartnerId(user.linked_profile_id);
+        }
+      } else if (user.role === 'donor') {
+        setPortalMode('donor');
+      }
+    }
+  }, [user]);
 
   // Sync donor donations on initial mount
   useEffect(() => {
@@ -87,6 +111,22 @@ export const App: React.FC = () => {
     }
   }, [portalMode, activePartnerId, refreshPartnerData]);
 
+  // Guarded donor navigation
+  const navigateDonorTo = (screen: ScreenType) => {
+    if (!isAuthenticated && (screen === 'create' || screen === 'donations')) {
+      setReturnTarget(screen);
+      setDestinationNotice(
+        screen === 'create'
+          ? 'Please log in or select a demo donor account to start a donation intake.'
+          : 'Please log in or select a demo donor account to view your contribution history.'
+      );
+      setIsLoginOpen(true);
+      return;
+    }
+    setCurrentDonorScreen(screen);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Donor handlers
   const handleDonationCreated = (newDonation: Donation) => {
     const updated = [newDonation, ...donations];
@@ -100,44 +140,45 @@ export const App: React.FC = () => {
     setSelectedDonation(donation);
   };
 
-  const navigateDonorTo = (screen: ScreenType) => {
-    setCurrentDonorScreen(screen);
+  // Auth Handlers
+  const handleLoginSuccess = (authenticatedUser: User) => {
+    setIsLoginOpen(false);
+
+    if (authenticatedUser.role === 'donor') {
+      setPortalMode('donor');
+      const target = returnTarget || 'home';
+      setReturnTarget(null);
+      setDestinationNotice(null);
+      setCurrentDonorScreen(target);
+      syncDonationsFromBackend().then((res) => {
+        if (res && res.length > 0) setDonations(res);
+      });
+    } else if (authenticatedUser.role === 'ngo' || authenticatedUser.role === 'recycler') {
+      setPortalMode('partner');
+      const pId = authenticatedUser.linked_profile_id || 'prt-ngo-01';
+      setActivePartnerId(pId);
+      setPartnerScreen('dashboard');
+      refreshPartnerData(pId);
+    } else if (authenticatedUser.role === 'admin') {
+      setPortalMode('donor');
+      setCurrentDonorScreen('home');
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Partner handlers
-  const handleSwitchToPartner = (partnerId?: string) => {
-    const targetId = partnerId || activePartnerId || 'prt-ngo-01';
-    setActivePartnerId(targetId);
-    setPortalMode('partner');
-    setPartnerScreen('dashboard');
-    refreshPartnerData(targetId);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleSwitchToDonor = () => {
-    setPortalMode('donor');
-    setCurrentDonorScreen('home');
-    // Refresh donor data
-    syncDonationsFromBackend().then((res) => {
-      if (res && res.length > 0) setDonations(res);
-    });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleSwitchPartnerOrg = (newPartnerId: string) => {
-    setActivePartnerId(newPartnerId);
-    refreshPartnerData(newPartnerId);
-  };
-
-  const handlePartnerLogout = () => {
-    // Clear active partner session and return to donor mode
+  const handleLogout = async () => {
+    await logout();
     setPartnerDashboardData(null);
     setPartnerDonations([]);
     setSelectedPartnerDonation(null);
     setIsPartnerDrawerOpen(false);
     setPortalMode('donor');
     setCurrentDonorScreen('home');
+    setReturnTarget(null);
+    setDestinationNotice(null);
+    setIsLoginOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOpenPartnerDrawer = (donationItem: PartnerDonationItem) => {
@@ -154,7 +195,6 @@ export const App: React.FC = () => {
     const updated = await acceptPartnerDonation(activePartnerId, donationId);
     setSelectedPartnerDonation(updated);
     await refreshPartnerData(activePartnerId);
-    // sync back to donor state
     syncDonationsFromBackend().then((res) => res && setDonations(res));
   };
 
@@ -186,6 +226,22 @@ export const App: React.FC = () => {
     syncDonationsFromBackend().then((res) => res && setDonations(res));
   };
 
+  // If Login screen is triggered
+  if (isLoginOpen) {
+    return (
+      <LoginPage
+        onSuccess={handleLoginSuccess}
+        onCancel={() => {
+          setIsLoginOpen(false);
+          setReturnTarget(null);
+          setDestinationNotice(null);
+        }}
+        returnUrl={returnTarget || undefined}
+        destinationNotice={destinationNotice || undefined}
+      />
+    );
+  }
+
   // Render Partner Portal
   if (portalMode === 'partner') {
     return (
@@ -197,9 +253,7 @@ export const App: React.FC = () => {
         }}
         partner={partnerDashboardData?.partner || null}
         pendingCount={partnerDashboardData?.stats.pending_count || 0}
-        onSwitchToDonor={handleSwitchToDonor}
-        onSwitchPartner={handleSwitchPartnerOrg}
-        onLogout={handlePartnerLogout}
+        onLogout={handleLogout}
         onRefresh={() => refreshPartnerData(activePartnerId)}
       >
         {partnerScreen === 'dashboard' && (
@@ -253,7 +307,11 @@ export const App: React.FC = () => {
       currentScreen={currentDonorScreen}
       onNavigate={navigateDonorTo}
       unreadCount={unreadNotifications}
-      onSwitchToPartner={handleSwitchToPartner}
+      onOpenLogin={() => {
+        setReturnTarget(null);
+        setDestinationNotice(null);
+        setIsLoginOpen(true);
+      }}
     >
       {currentDonorScreen === 'home' && (
         <DonorHome

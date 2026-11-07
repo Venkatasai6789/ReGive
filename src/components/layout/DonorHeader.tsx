@@ -1,40 +1,62 @@
 import React, { useState } from 'react';
 import { ScreenType } from '../../types/donation';
+import { useAuth } from '../../context/AuthContext';
 import {
   HeartHandshake,
   Bell,
   Menu,
   X,
   ChevronDown,
-  Sparkles,
   ShieldCheck,
   Package,
   Layers,
   Search,
-  Globe
+  Globe,
+  User as UserIcon,
+  LogOut,
+  Sparkles
 } from 'lucide-react';
 
 interface DonorHeaderProps {
   currentScreen: ScreenType;
   onNavigate: (screen: ScreenType) => void;
   unreadCount?: number;
-  onSwitchToPartner?: (partnerId?: string) => void;
+  onOpenLogin: () => void;
 }
 
 export const DonorHeader: React.FC<DonorHeaderProps> = ({
   currentScreen,
   onNavigate,
   unreadCount = 2,
-  onSwitchToPartner
+  onOpenLogin
 }) => {
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
 
+  // Compute initials from real authenticated user
+  const getInitials = () => {
+    if (!user || !user.display_name) return 'U';
+    const parts = user.display_name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return user.display_name.substring(0, 2).toUpperCase();
+  };
+
+  const handleDonateClick = () => {
+    if (!isAuthenticated) {
+      onOpenLogin();
+    } else {
+      onNavigate('create');
+    }
+  };
+
   return (
     <>
       <header className="relative w-full border-b border-[#E5E7E4] bg-white">
-        {/* Subtle browser window accent header inspired by reference mockup */}
+        {/* Browser window accent header matching reference design */}
         <div className="flex items-center justify-between px-6 py-2.5 bg-[#FAFBF9] border-b border-[#F1F2F0] text-xs text-[#777777]">
           <div className="flex items-center gap-2">
             <span className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E] inline-block shadow-2xs"></span>
@@ -90,7 +112,13 @@ export const DonorHeader: React.FC<DonorHeaderProps> = ({
               Home
             </button>
             <button
-              onClick={() => onNavigate('donations')}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  onOpenLogin();
+                } else {
+                  onNavigate('donations');
+                }
+              }}
               className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-150 ${
                 currentScreen === 'donations'
                   ? 'bg-white text-[#171717] shadow-sm'
@@ -107,7 +135,7 @@ export const DonorHeader: React.FC<DonorHeaderProps> = ({
             </button>
           </nav>
 
-          {/* Right: Actions matching the reference design */}
+          {/* Right: Actions */}
           <div className="flex items-center gap-2.5 sm:gap-3">
             {/* Minimal Search Button */}
             <button
@@ -123,95 +151,102 @@ export const DonorHeader: React.FC<DonorHeaderProps> = ({
               <span>UA</span>
             </div>
 
-            {/* Notification Bell */}
-            <button
-              title="Notifications"
-              className="relative p-2 rounded-full hover:bg-[#F1F2F0] text-[#171717] transition-colors"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#C94B4B] ring-2 ring-white"></span>
-              )}
-            </button>
-
-            {/* Profile Menu */}
-            <div className="relative hidden lg:block">
+            {/* Notification Bell (Only if authenticated) */}
+            {isAuthenticated && (
               <button
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-[#E5E7E4] hover:bg-[#F1F2F0] transition-colors text-left"
+                title="Notifications"
+                className="relative p-2 rounded-full hover:bg-[#F1F2F0] text-[#171717] transition-colors"
               >
-                <div className="w-6 h-6 rounded-full bg-[#171717] text-white flex items-center justify-center text-[10px] font-bold font-['Manrope']">
-                  ER
-                </div>
-                <div className="leading-tight">
-                  <span className="block text-xs font-bold text-[#171717]">Elena</span>
-                </div>
-                <ChevronDown className="w-3 h-3 text-[#777777]" />
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#C94B4B] ring-2 ring-white"></span>
+                )}
               </button>
+            )}
 
-              {/* Profile Dropdown */}
-              {profileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-[#E5E7E4] rounded-2xl shadow-xl py-2 z-50">
-                  <div className="px-4 py-2 border-b border-[#F1F2F0]">
-                    <p className="text-xs font-bold text-[#171717]">Elena Rostova</p>
-                    <p className="text-[11px] text-[#777777]">elena.rostova@university.edu</p>
+            {/* Authentication State: Log In Button vs Dynamic Profile Dropdown */}
+            {!isAuthenticated ? (
+              <button
+                onClick={onOpenLogin}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full font-bold text-xs text-[#171717] bg-[#F1F2F0] hover:bg-[#E5E7E4] transition-all cursor-pointer"
+              >
+                <UserIcon className="w-3.5 h-3.5 text-[#171717]" />
+                <span>Log In</span>
+              </button>
+            ) : (
+              <div className="relative">
+                <button
+                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-[#E5E7E4] hover:bg-[#F1F2F0] transition-colors text-left cursor-pointer"
+                >
+                  <div className="w-6 h-6 rounded-full bg-[#171717] text-white flex items-center justify-center text-[10px] font-bold font-['Manrope']">
+                    {getInitials()}
                   </div>
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        onNavigate('donations');
-                        setProfileDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs font-medium text-[#171717] hover:bg-[#F1F2F0] flex items-center gap-2"
-                    >
-                      <Package className="w-3.5 h-3.5 text-[#777777]" />
-                      My Contribution History
-                    </button>
-                    <button
-                      onClick={() => {
-                        setAboutModalOpen(true);
-                        setProfileDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs font-medium text-[#171717] hover:bg-[#F1F2F0] flex items-center gap-2"
-                    >
-                      <Layers className="w-3.5 h-3.5 text-[#777777]" />
-                      Platform Impact Metrics
-                    </button>
-                    {onSwitchToPartner && (
-                      <div className="mt-1 pt-1 border-t border-[#F1F2F0]">
-                        <p className="px-4 py-1 text-[10px] uppercase font-bold text-[#888888]">
-                          Switch to Partner Portal
-                        </p>
-                        <button
-                          onClick={() => {
-                            onSwitchToPartner('prt-ngo-01');
-                            setProfileDropdownOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-2 text-xs font-semibold text-[#171717] hover:bg-[#F1F2F0] flex items-center justify-between"
-                        >
-                          <span>Annapoorna Trust</span>
-                          <span className="text-[10px] text-[#D97706] font-bold">Food NGO</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            onSwitchToPartner('prt-rec-03');
-                            setProfileDropdownOpen(false);
-                          }}
-                          className="w-full text-left px-4 py-2 text-xs font-semibold text-[#171717] hover:bg-[#F1F2F0] flex items-center justify-between"
-                        >
-                          <span>Green Earth Compost</span>
-                          <span className="text-[10px] text-[#059669] font-bold">Recycler</span>
-                        </button>
+                  <div className="leading-tight hidden sm:block">
+                    <span className="block text-xs font-bold text-[#171717] max-w-[100px] truncate">
+                      {user?.display_name?.split(' ')[0]}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3 h-3 text-[#777777]" />
+                </button>
+
+                {/* Database-Driven Profile Dropdown */}
+                {profileDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-[#E5E7E4] rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="px-4 py-2.5 border-b border-[#F1F2F0]">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-[#171717] truncate">{user?.display_name}</p>
+                        <span className="text-[9px] uppercase font-bold px-1.5 py-0.2 rounded-full bg-[#23845B]/10 text-[#23845B]">
+                          {user?.role}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+                      <p className="text-[11px] text-[#777777] truncate mt-0.5">{user?.email}</p>
+                    </div>
 
-            {/* Donate Pill Button directly mirroring the reference mockup */}
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          onNavigate('donations');
+                          setProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs font-medium text-[#171717] hover:bg-[#F1F2F0] flex items-center gap-2 cursor-pointer"
+                      >
+                        <Package className="w-3.5 h-3.5 text-[#777777]" />
+                        My Contribution History
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAboutModalOpen(true);
+                          setProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs font-medium text-[#171717] hover:bg-[#F1F2F0] flex items-center gap-2 cursor-pointer"
+                      >
+                        <Layers className="w-3.5 h-3.5 text-[#777777]" />
+                        Platform Impact Metrics
+                      </button>
+                    </div>
+
+                    <div className="pt-1 border-t border-[#F1F2F0]">
+                      <button
+                        onClick={async () => {
+                          setProfileDropdownOpen(false);
+                          await logout();
+                          onNavigate('home');
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs font-bold text-[#C94B4B] hover:bg-red-50 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5 text-[#C94B4B]" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Donate Pill Button */}
             <button
-              onClick={() => onNavigate('create')}
+              onClick={handleDonateClick}
               className="flex items-center gap-1.5 px-5 py-2.5 rounded-full font-bold text-sm text-[#171717] bg-[#F5E84D] hover:bg-[#EBDD3C] transition-all shadow-xs active:scale-95 cursor-pointer"
             >
               <span>Donate</span>
@@ -247,7 +282,11 @@ export const DonorHeader: React.FC<DonorHeaderProps> = ({
             </button>
             <button
               onClick={() => {
-                onNavigate('donations');
+                if (!isAuthenticated) {
+                  onOpenLogin();
+                } else {
+                  onNavigate('donations');
+                }
                 setMobileMenuOpen(false);
               }}
               className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold ${
@@ -267,12 +306,37 @@ export const DonorHeader: React.FC<DonorHeaderProps> = ({
             >
               About the Platform
             </button>
-            <div className="pt-2 border-t border-[#F1F2F0] flex items-center justify-between">
-              <span className="text-xs text-[#777777]">Donor Account: Elena Rostova</span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#23845B]/10 text-[#23845B]">
-                Active
-              </span>
-            </div>
+
+            {isAuthenticated ? (
+              <div className="pt-2 border-t border-[#F1F2F0] flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-[#171717] block">{user?.display_name}</span>
+                  <span className="text-[10px] text-[#777777]">{user?.email}</span>
+                </div>
+                <button
+                  onClick={async () => {
+                    await logout();
+                    setMobileMenuOpen(false);
+                    onNavigate('home');
+                  }}
+                  className="px-3 py-1 rounded-full text-xs font-bold text-red-600 bg-red-50"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="pt-2 border-t border-[#F1F2F0]">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenLogin();
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-[#F5E84D] text-center font-bold text-xs text-[#171717]"
+                >
+                  Sign In to Your Account
+                </button>
+              </div>
+            )}
           </div>
         )}
       </header>

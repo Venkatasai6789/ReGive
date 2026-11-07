@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PartnerScreenType, PartnerProfile } from '../../types/partner';
+import { useAuth } from '../../context/AuthContext';
 import {
   HeartHandshake,
   Bell,
@@ -13,7 +14,7 @@ import {
   RefreshCw,
   Search,
   Globe,
-  ArrowLeftRight,
+  Building2,
   CheckCircle2,
   Recycle,
   Utensils
@@ -24,8 +25,6 @@ interface PartnerHeaderProps {
   onNavigate: (screen: PartnerScreenType) => void;
   partner: PartnerProfile | null;
   pendingCount?: number;
-  onSwitchToDonor: () => void;
-  onSwitchPartner: (partnerId: string) => void;
   onLogout: () => void;
   onRefresh?: () => void;
 }
@@ -35,15 +34,27 @@ export const PartnerHeader: React.FC<PartnerHeaderProps> = ({
   onNavigate,
   partner,
   pendingCount = 0,
-  onSwitchToDonor,
-  onSwitchPartner,
   onLogout,
   onRefresh
 }) => {
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
-  const isRecycler = partner?.organization_type?.toLowerCase().includes('recycler') || false;
+  const isRecycler = partner?.organization_type?.toLowerCase().includes('recycler') || user?.role === 'recycler';
+  const orgName = partner?.name || user?.display_name || 'Partner Organization';
+  const orgEmail = partner?.contact_email || user?.email || 'partner@regive.network';
+  const orgId = partner?.id || user?.linked_profile_id || 'portal';
+
+  // Compute initials
+  const getInitials = () => {
+    if (!orgName) return 'PT';
+    const words = orgName.trim().split(' ');
+    if (words.length >= 2) {
+      return (words[0][0] + words[1][0]).toUpperCase();
+    }
+    return orgName.substring(0, 2).toUpperCase();
+  };
 
   return (
     <>
@@ -55,7 +66,7 @@ export const PartnerHeader: React.FC<PartnerHeaderProps> = ({
             <span className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123] inline-block shadow-2xs"></span>
             <span className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29] inline-block shadow-2xs"></span>
             <span className="ml-2 font-mono text-[11px] text-[#888888]">
-              regive.network/partner-portal/{partner?.id || 'portal'}
+              regive.network/partner-portal/{orgId}
             </span>
           </div>
           <div className="hidden sm:flex items-center gap-3 text-[11px] font-medium">
@@ -109,7 +120,7 @@ export const PartnerHeader: React.FC<PartnerHeaderProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-[#777777] hidden sm:block -mt-0.5 font-medium">
-                {partner?.name || 'Partner Organization'} • Verified Node
+                {orgName} • Verified Node
               </p>
             </div>
           </div>
@@ -187,14 +198,14 @@ export const PartnerHeader: React.FC<PartnerHeaderProps> = ({
             <div className="relative">
               <button
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-[#E5E7E4] hover:bg-[#F1F2F0] transition-colors text-left"
+                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-[#E5E7E4] hover:bg-[#F1F2F0] transition-colors text-left cursor-pointer"
               >
                 <div className="w-7 h-7 rounded-full bg-[#171717] text-[#F5E84D] flex items-center justify-center text-xs font-bold font-['Manrope']">
-                  {partner?.name ? partner.name.substring(0, 2).toUpperCase() : 'PT'}
+                  {getInitials()}
                 </div>
                 <div className="leading-tight hidden sm:block">
                   <span className="block text-xs font-bold text-[#171717] truncate max-w-[120px]">
-                    {partner?.name || 'Partner Account'}
+                    {orgName}
                   </span>
                 </div>
                 <ChevronDown className="w-3 h-3 text-[#777777]" />
@@ -205,69 +216,19 @@ export const PartnerHeader: React.FC<PartnerHeaderProps> = ({
                 <div className="absolute right-0 mt-2 w-72 bg-white border border-[#E5E7E4] rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                   <div className="px-4 py-3 border-b border-[#F1F2F0]">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="text-xs font-bold text-[#171717]">{partner?.name}</p>
+                      <p className="text-xs font-bold text-[#171717] truncate">{orgName}</p>
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#23845B]/10 text-[#23845B]">
-                        Verified
+                        Verified Node
                       </span>
                     </div>
-                    <p className="text-[11px] text-[#777777]">{partner?.contact_email || 'partner@regive.network'}</p>
-                    <p className="text-[10px] text-[#888888] mt-1 font-mono">ID: {partner?.id}</p>
-                  </div>
-
-                  <div className="px-3 py-2 border-b border-[#F1F2F0]">
-                    <p className="text-[10px] uppercase font-bold text-[#888888] tracking-wider mb-1.5 px-2">
-                      Switch Role / Organization
-                    </p>
-                    
-                    <button
-                      onClick={() => {
-                        setProfileDropdownOpen(false);
-                        onSwitchToDonor();
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs font-semibold text-[#171717] hover:bg-[#F1F2F0] rounded-xl flex items-center justify-between group transition-colors"
-                    >
-                      <span className="flex items-center gap-2">
-                        <ArrowLeftRight className="w-3.5 h-3.5 text-[#777777] group-hover:text-[#171717]" />
-                        <span>Donor Portal (Elena)</span>
+                    <p className="text-[11px] text-[#777777] truncate">{orgEmail}</p>
+                    <p className="text-[10px] text-[#888888] mt-1 font-mono">Profile ID: {orgId}</p>
+                    <div className="mt-2 pt-2 border-t border-[#F1F2F0] flex items-center gap-2">
+                      <span className="text-[10px] font-semibold text-[#555555]">Authenticated Role:</span>
+                      <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 rounded bg-[#171717] text-[#F5E84D]">
+                        {user?.role || 'Partner'}
                       </span>
-                      <span className="text-[10px] text-[#777777]">Donor View</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setProfileDropdownOpen(false);
-                        onSwitchPartner('prt-ngo-01');
-                      }}
-                      className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-xl flex items-center justify-between group transition-colors ${
-                        partner?.id === 'prt-ngo-01' ? 'bg-[#FAFBF9] text-[#171717] font-bold' : 'text-[#777777] hover:bg-[#F1F2F0] hover:text-[#171717]'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Utensils className="w-3.5 h-3.5 text-[#D97706]" />
-                        <span>Annapoorna Trust</span>
-                      </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D97706]/10 text-[#D97706] font-bold">
-                        Food NGO
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setProfileDropdownOpen(false);
-                        onSwitchPartner('prt-rec-03');
-                      }}
-                      className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-xl flex items-center justify-between group transition-colors ${
-                        partner?.id === 'prt-rec-03' ? 'bg-[#FAFBF9] text-[#171717] font-bold' : 'text-[#777777] hover:bg-[#F1F2F0] hover:text-[#171717]'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Recycle className="w-3.5 h-3.5 text-[#059669]" />
-                        <span>Green Earth Compost</span>
-                      </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#059669]/10 text-[#059669] font-bold">
-                        Recycler
-                      </span>
-                    </button>
+                    </div>
                   </div>
 
                   <div className="py-1">
@@ -276,10 +237,10 @@ export const PartnerHeader: React.FC<PartnerHeaderProps> = ({
                         setProfileDropdownOpen(false);
                         onLogout();
                       }}
-                      className="w-full text-left px-4 py-2 text-xs font-bold text-[#C94B4B] hover:bg-[#FEE2E2]/30 flex items-center gap-2 transition-colors"
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-[#C94B4B] hover:bg-red-50 flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5 text-[#C94B4B]" />
-                      Logout / Clear Active Session
+                      Sign Out
                     </button>
                   </div>
                 </div>
@@ -349,22 +310,12 @@ export const PartnerHeader: React.FC<PartnerHeaderProps> = ({
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
-                  onSwitchToDonor();
-                }}
-                className="w-full text-left px-4 py-2 text-xs font-semibold text-[#171717] bg-[#F1F2F0] rounded-xl flex items-center gap-2"
-              >
-                <ArrowLeftRight className="w-3.5 h-3.5" />
-                Switch to Donor Portal
-              </button>
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
                   onLogout();
                 }}
-                className="w-full text-left px-4 py-2 text-xs font-bold text-[#C94B4B] bg-red-50 rounded-xl flex items-center gap-2"
+                className="w-full text-left px-4 py-2.5 text-xs font-bold text-[#C94B4B] bg-red-50 rounded-xl flex items-center gap-2"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                Logout
+                Sign Out
               </button>
             </div>
           </div>

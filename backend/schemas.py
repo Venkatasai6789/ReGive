@@ -178,3 +178,29 @@ class ScheduleDonationPayload(BaseModel):
     pickup_date: str
     pickup_time: str
     notes: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    display_name: str
+    role: str
+    linked_profile_id: Optional[str] = None
+    organization_type: Optional[str] = None
+    is_active: bool = True
+    is_verified: bool = True
+    created_at: str
+    last_login_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AuthStatusResponse(BaseModel):
+    authenticated: bool
+    user: Optional[UserResponse] = None

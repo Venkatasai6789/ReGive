@@ -8,8 +8,6 @@ interface PartnerLayoutProps {
   onNavigate: (screen: PartnerScreenType) => void;
   partner: PartnerProfile | null;
   pendingCount?: number;
-  onSwitchToDonor: () => void;
-  onSwitchPartner: (partnerId: string) => void;
   onLogout: () => void;
   onRefresh?: () => void;
   children: React.ReactNode;
@@ -20,8 +18,6 @@ export const PartnerLayout: React.FC<PartnerLayoutProps> = ({
   onNavigate,
   partner,
   pendingCount,
-  onSwitchToDonor,
-  onSwitchPartner,
   onLogout,
   onRefresh,
   children
@@ -36,8 +32,6 @@ export const PartnerLayout: React.FC<PartnerLayoutProps> = ({
           onNavigate={onNavigate}
           partner={partner}
           pendingCount={pendingCount}
-          onSwitchToDonor={onSwitchToDonor}
-          onSwitchPartner={onSwitchPartner}
           onLogout={onLogout}
           onRefresh={onRefresh}
         />

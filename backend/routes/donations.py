@@ -3,14 +3,15 @@ import uuid
 import json
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Request, status
 from sqlalchemy.orm import Session
 from PIL import Image
 import urllib.request
 import io
 
 from backend.database import get_db
-from backend.models import Donation, AIAnalysis, Partner, DonationMatch, DonationEvent
+from backend.models import Donation, AIAnalysis, Partner, DonationMatch, DonationEvent, User
+from backend.routes.auth import get_optional_user
 from backend.schemas import (
     DonationAnalysisResult,
     DonationCreateRequest,
@@ -131,15 +132,29 @@ async def analyze_donation(
 
 
 @router.post("", response_model=DonationResponse)
-def create_donation(donation_in: DonationCreateRequest, db: Session = Depends(get_db)):
+def create_donation(
+    donation_in: DonationCreateRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
     Creates and persists a new donation record, its AI analysis, and initial tracking event in SQLite.
+    Enforces user identity if session is authenticated.
     """
+    current_user = get_optional_user(request, db)
+    if current_user and current_user.role in ['ngo', 'recycler']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Partner organizations cannot create donations. Please log in with a donor account."
+        )
+
+    effective_donor_id = current_user.donor_id if (current_user and current_user.donor_id) else (donation_in.donor_id or "usr-elena-01")
+
     donation_id = f"DON-{datetime.utcnow().year}-{str(uuid.uuid4().int)[:4]}"
 
     db_donation = Donation(
         id=donation_id,
-        donor_id=donation_in.donor_id,
+        donor_id=effective_donor_id,
         image_path=donation_in.image_url,
         category="Food",
         food_type=donation_in.food_type or "Bakery & Bread",
@@ -223,24 +238,45 @@ def create_donation(donation_in: DonationCreateRequest, db: Session = Depends(ge
 
 @router.get("", response_model=List[DonationResponse])
 def get_donations(
-    donor_id: str = Query("usr-elena-01"),
+    donor_id: Optional[str] = Query(None),
+    request: Request = None,
     db: Session = Depends(get_db)
 ):
     """
-    Retrieves all donations for a donor ordered by created_at descending.
+    Retrieves donations ordered by created_at descending.
+    If authenticated as a donor, returns only their donations.
     """
-    donations = db.query(Donation).filter(Donation.donor_id == donor_id).order_by(Donation.created_at.desc()).all()
+    current_user = get_optional_user(request, db) if request else None
+
+    if current_user and current_user.role == 'donor':
+        effective_donor_id = current_user.donor_id or donor_id or "usr-elena-01"
+    elif current_user and current_user.role == 'admin':
+        effective_donor_id = donor_id or "usr-elena-01"
+    else:
+        effective_donor_id = donor_id or "usr-elena-01"
+
+    donations = db.query(Donation).filter(Donation.donor_id == effective_donor_id).order_by(Donation.created_at.desc()).all()
     return [_build_donation_response(d) for d in donations]
 
 
 @router.get("/{id}", response_model=DonationResponse)
-def get_donation_by_id(id: str, db: Session = Depends(get_db)):
+def get_donation_by_id(id: str, request: Request, db: Session = Depends(get_db)):
     """
     Retrieves a single donation with its full tracking timeline and AI analysis.
+    Verifies donor access ownership if authenticated as donor.
     """
     donation = db.query(Donation).filter(Donation.id == id).first()
     if not donation:
         raise HTTPException(status_code=404, detail="Donation record not found")
+
+    current_user = get_optional_user(request, db)
+    if current_user and current_user.role == 'donor':
+        if donation.donor_id != current_user.donor_id and current_user.role != 'admin':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: You do not have permission to view another donor's donation record."
+            )
+
     return _build_donation_response(donation)
 
 

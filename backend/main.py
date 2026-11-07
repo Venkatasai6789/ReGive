@@ -7,6 +7,7 @@ from backend.models import Partner
 from backend.services.ai_pipeline import init_faiss_partner_indices
 from backend.routes.donations import router as donations_router
 from backend.routes.partners import router as partners_router
+from backend.routes.auth import router as auth_router
 from backend.seed import seed_database
 
 # Ensure database tables exist
@@ -21,7 +22,12 @@ app = FastAPI(
 # CORS configuration for Vite Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,6 +44,7 @@ if os.path.exists(TEST_IMG_DIR):
     app.mount("/test-images", StaticFiles(directory=TEST_IMG_DIR), name="test-images")
 
 # Include Routers
+app.include_router(auth_router)
 app.include_router(donations_router)
 app.include_router(partners_router)
 

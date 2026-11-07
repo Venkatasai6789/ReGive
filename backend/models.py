@@ -23,6 +23,7 @@ class Donor(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     donations = relationship("Donation", back_populates="donor")
+    user = relationship("User", back_populates="donor", uselist=False)
 
 
 class Donation(Base):
@@ -94,6 +95,8 @@ class Partner(Base):
     address = Column(String, nullable=True)
     rating = Column(Float, default=4.9)
 
+    user = relationship("User", back_populates="partner", uselist=False)
+
 
 class DonationMatch(Base):
     __tablename__ = "donation_matches"
@@ -125,3 +128,39 @@ class DonationEvent(Base):
     detail = Column(Text, nullable=True)
 
     donation = relationship("Donation", back_populates="events")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    role = Column(String, index=True, nullable=False)  # 'donor', 'ngo', 'recycler', 'admin'
+    donor_id = Column(String, ForeignKey("donors.id"), nullable=True)
+    partner_id = Column(String, ForeignKey("partners.id"), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_verified = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+    last_login_at = Column(DateTime, nullable=True)
+
+    donor = relationship("Donor", back_populates="user", uselist=False)
+    partner = relationship("Partner", back_populates="user", uselist=False)
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(String, primary_key=True, index=True)  # 64-character cryptographically secure token hex
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    last_activity_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(Text, nullable=True)
+    is_revoked = Column(Boolean, default=False, nullable=False)
+
+    user = relationship("User", back_populates="sessions")
+

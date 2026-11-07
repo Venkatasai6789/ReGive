@@ -1,5 +1,6 @@
 import React from 'react';
 import { Package, CheckCircle, Clock } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface DonationOverviewProps {
   total: number;
@@ -14,6 +15,10 @@ export const DonationOverview: React.FC<DonationOverviewProps> = ({
   awaiting,
   onFilterClick
 }) => {
+  const { user } = useAuth();
+  const accountTitle = user?.display_name
+    ? `${user.display_name} • Personal Contributions`
+    : 'Verified Community Resource Ledger';
   return (
     <section className="px-6 md:px-12 lg:px-16 py-8 border-y border-[#E5E7E4] bg-[#FAFBF9]">
       <div className="max-w-6xl mx-auto">
@@ -23,7 +28,7 @@ export const DonationOverview: React.FC<DonationOverviewProps> = ({
               Donor Account Summary
             </h3>
             <p className="text-sm font-semibold text-[#171717]">
-              Elena Rostova &bull; Personal Contributions
+              {accountTitle}
             </p>
           </div>
           <span className="text-xs text-[#777777] hidden sm:inline">

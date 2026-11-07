@@ -1,12 +1,13 @@
 import json
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
 from backend.database import get_db
-from backend.models import Partner, Donation, AIAnalysis, DonationMatch, DonationEvent, Donor
+from backend.models import Partner, Donation, AIAnalysis, DonationMatch, DonationEvent, Donor, User
+from backend.routes.auth import get_optional_user
 from backend.schemas import (
     PartnerMatchResponse,
     PartnerDashboardResponse,
@@ -210,9 +211,32 @@ def get_partner(
     )
 
 
+def _verify_partner_access(request: Request, partner_id: str, db: Session):
+    """
+    Role-Based Access Control helper for partner portal endpoints:
+    1. Donors are blocked from partner operations (403 Forbidden).
+    2. Partners can only manage their own organization's dashboard and donations.
+    3. Admins have cross-organizational privileges.
+    """
+    user = get_optional_user(request, db)
+    if user:
+        if user.role == "donor":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: Donors do not have authorization to access partner portal dashboards or operations."
+            )
+        if user.role in ["ngo", "recycler"]:
+            if user.partner_id != partner_id and user.role != "admin":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Forbidden: You are authenticated with an organization account that cannot access or manage partner '{partner_id}'."
+                )
+
+
 @router.get("/{partner_id}/dashboard", response_model=PartnerDashboardResponse)
 def get_partner_dashboard(
     partner_id: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
@@ -223,6 +247,8 @@ def get_partner_dashboard(
     - Upcoming collections
     - Chronological recent activity from persisted donation_events
     """
+    _verify_partner_access(request, partner_id, db)
+
     partner = db.query(Partner).filter(Partner.id == partner_id).first()
     if not partner:
         raise HTTPException(status_code=404, detail="Partner organization not found")
@@ -330,6 +356,7 @@ def get_partner_dashboard(
 @router.get("/{partner_id}/donations", response_model=List[PartnerDonationItemResponse])
 def get_partner_donations(
     partner_id: str,
+    request: Request,
     status: Optional[str] = None,
     category: Optional[str] = None,
     search: Optional[str] = None,
@@ -339,6 +366,8 @@ def get_partner_donations(
     Returns all donations strictly assigned to this partner (selected_partner_id == partner_id).
     Supports status, category, and search text filtering.
     """
+    _verify_partner_access(request, partner_id, db)
+
     partner = db.query(Partner).filter(Partner.id == partner_id).first()
     if not partner:
         raise HTTPException(status_code=404, detail="Partner organization not found")
@@ -367,12 +396,15 @@ def get_partner_donations(
 def get_partner_donation_detail(
     partner_id: str,
     donation_id: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Returns full details for a donation assigned to this partner.
     Enforces authorization: 403 Forbidden if not assigned to this partner.
     """
+    _verify_partner_access(request, partner_id, db)
+
     donation = db.query(Donation).filter(Donation.id == donation_id).first()
     if not donation:
         raise HTTPException(status_code=404, detail="Donation record not found")
@@ -390,12 +422,15 @@ def get_partner_donation_detail(
 def accept_donation(
     partner_id: str,
     donation_id: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Accepts donation: transitions status to 'Accepted', updates timeline stage 2 to completed & current.
     Enforces authorization: 403 if not assigned to this partner.
     """
+    _verify_partner_access(request, partner_id, db)
+
     donation = db.query(Donation).filter(Donation.id == donation_id).first()
     if not donation:
         raise HTTPException(status_code=404, detail="Donation record not found")
@@ -436,12 +471,15 @@ def reject_donation(
     partner_id: str,
     donation_id: str,
     payload: RejectDonationPayload,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Rejects donation: updates status to 'Rejected', records reason in stage 2 event detail.
     Enforces authorization: 403 if not assigned to this partner.
     """
+    _verify_partner_access(request, partner_id, db)
+
     donation = db.query(Donation).filter(Donation.id == donation_id).first()
     if not donation:
         raise HTTPException(status_code=404, detail="Donation record not found")
@@ -480,12 +518,15 @@ def schedule_donation(
     partner_id: str,
     donation_id: str,
     payload: ScheduleDonationPayload,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Schedules collection: transitions status to 'Collection Scheduled', updates stage 3 timeline.
     Enforces authorization: 403 if not assigned to this partner.
     """
+    _verify_partner_access(request, partner_id, db)
+
     donation = db.query(Donation).filter(Donation.id == donation_id).first()
     if not donation:
         raise HTTPException(status_code=404, detail="Donation record not found")
@@ -525,12 +566,15 @@ def schedule_donation(
 def collect_donation(
     partner_id: str,
     donation_id: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Confirms collection: transitions status to 'Collected', updates stage 4 timeline.
     Enforces authorization: 403 if not assigned to this partner.
     """
+    _verify_partner_access(request, partner_id, db)
+
     donation = db.query(Donation).filter(Donation.id == donation_id).first()
     if not donation:
         raise HTTPException(status_code=404, detail="Donation record not found")
@@ -569,12 +613,15 @@ def collect_donation(
 def complete_donation(
     partner_id: str,
     donation_id: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
     Completes donation: transitions status to 'Completed', updates stage 5 timeline.
     Enforces authorization: 403 if not assigned to this partner.
     """
+    _verify_partner_access(request, partner_id, db)
+
     donation = db.query(Donation).filter(Donation.id == donation_id).first()
     if not donation:
         raise HTTPException(status_code=404, detail="Donation record not found")
