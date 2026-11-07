@@ -18,12 +18,14 @@ interface DonorHeaderProps {
   currentScreen: ScreenType;
   onNavigate: (screen: ScreenType) => void;
   unreadCount?: number;
+  onSwitchToPartner?: (partnerId?: string) => void;
 }
 
 export const DonorHeader: React.FC<DonorHeaderProps> = ({
   currentScreen,
   onNavigate,
-  unreadCount = 2
+  unreadCount = 2,
+  onSwitchToPartner
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -175,6 +177,33 @@ export const DonorHeader: React.FC<DonorHeaderProps> = ({
                       <Layers className="w-3.5 h-3.5 text-[#777777]" />
                       Platform Impact Metrics
                     </button>
+                    {onSwitchToPartner && (
+                      <div className="mt-1 pt-1 border-t border-[#F1F2F0]">
+                        <p className="px-4 py-1 text-[10px] uppercase font-bold text-[#888888]">
+                          Switch to Partner Portal
+                        </p>
+                        <button
+                          onClick={() => {
+                            onSwitchToPartner('prt-ngo-01');
+                            setProfileDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-xs font-semibold text-[#171717] hover:bg-[#F1F2F0] flex items-center justify-between"
+                        >
+                          <span>Annapoorna Trust</span>
+                          <span className="text-[10px] text-[#D97706] font-bold">Food NGO</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            onSwitchToPartner('prt-rec-03');
+                            setProfileDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-xs font-semibold text-[#171717] hover:bg-[#F1F2F0] flex items-center justify-between"
+                        >
+                          <span>Green Earth Compost</span>
+                          <span className="text-[10px] text-[#059669] font-bold">Recycler</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

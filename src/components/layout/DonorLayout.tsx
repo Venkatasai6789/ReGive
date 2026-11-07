@@ -7,6 +7,7 @@ interface DonorLayoutProps {
   currentScreen: ScreenType;
   onNavigate: (screen: ScreenType) => void;
   unreadCount?: number;
+  onSwitchToPartner?: (partnerId?: string) => void;
   children: React.ReactNode;
 }
 
@@ -14,6 +15,7 @@ export const DonorLayout: React.FC<DonorLayoutProps> = ({
   currentScreen,
   onNavigate,
   unreadCount,
+  onSwitchToPartner,
   children
 }) => {
   return (
@@ -25,6 +27,7 @@ export const DonorLayout: React.FC<DonorLayoutProps> = ({
           currentScreen={currentScreen}
           onNavigate={onNavigate}
           unreadCount={unreadCount}
+          onSwitchToPartner={onSwitchToPartner}
         />
 
         {/* Dynamic Screen Content */}

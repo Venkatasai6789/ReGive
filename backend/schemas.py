@@ -103,3 +103,78 @@ class DonationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PartnerDonationItemResponse(BaseModel):
+    id: str
+    donor_id: str
+    donor_name: str
+    donor_email: str
+    donor_phone: Optional[str] = None
+    image_url: Optional[str] = None
+    category: str
+    food_type: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+    quantity: float
+    unit: str
+    condition: str
+    expiry_date: Optional[str] = None
+    storage_condition: Optional[str] = None
+    hours_since_cooked: Optional[float] = None
+    pickup_location: str
+    status: str
+    selected_partner_id: Optional[str] = None
+    partner_name: Optional[str] = None
+    partner_type: Optional[str] = None
+    stream_type: Optional[str] = None
+    ai_safety_status: Optional[str] = None
+    ai_analysis: Optional[dict] = None
+    match_info: Optional[dict] = None
+    tracking_timeline: List[TrackingStageResponse] = []
+    scheduled_date: Optional[str] = None
+    scheduled_time: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class PartnerStatsResponse(BaseModel):
+    pending_count: int = 0
+    accepted_count: int = 0
+    scheduled_count: int = 0
+    completed_count: int = 0
+    total_assigned: int = 0
+    total_quantity_processed: float = 0.0
+
+
+class PartnerRecentActivity(BaseModel):
+    id: str
+    donation_id: str
+    donation_title: str
+    stage_id: int
+    label: str
+    timestamp: Optional[str] = None
+    detail: Optional[str] = None
+
+
+class PartnerDashboardResponse(BaseModel):
+    partner: PartnerMatchResponse
+    stats: PartnerStatsResponse
+    incoming_preview: List[PartnerDonationItemResponse] = []
+    upcoming_collections: List[PartnerDonationItemResponse] = []
+    recent_activity: List[PartnerRecentActivity] = []
+
+
+class RejectDonationPayload(BaseModel):
+    reason: str
+    notes: Optional[str] = None
+
+
+class ScheduleDonationPayload(BaseModel):
+    pickup_date: str
+    pickup_time: str
+    notes: Optional[str] = None
